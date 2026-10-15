@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CineBlue - Discover Movies</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{background:#05070d;color:#e6ecff;font-family:system-ui,sans-serif}
+  .row{scrollbar-width:thin;scrollbar-color:#2563eb #05070d}
+  .card:hover{transform:translateY(-6px);box-shadow:0 10px 30px #2563eb55}
+</style>
+</head>
+<body>
+
+<header class="fixed top-0 inset-x-0 z-50 bg-black/70 backdrop-blur border-b border-blue-900/50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
+    <a href="#" class="text-xl font-extrabold text-blue-500 tracking-wide">CINE<span class="text-white">BLUE</span></a>
+    <input id="search" type="search" placeholder="Search movies..."
+      class="flex-1 max-w-md ml-auto bg-slate-900 border border-blue-900 rounded-full px-4 py-2 text-sm outline-none focus:border-blue-500">
+  </div>
+</header>
+
+<section id="hero" class="relative h-[70vh] min-h-[420px] bg-cover bg-center flex items-end">
+  <div class="absolute inset-0 bg-gradient-to-t from-[#05070d] via-[#05070d]/50 to-transparent"></div>
+  <div class="relative max-w-7xl mx-auto px-4 pb-12 w-full">
+    <p class="text-blue-400 text-sm font-semibold uppercase tracking-widest">Trending Now</p>
+    <h1 id="hero-title" class="text-3xl md:text-5xl font-extrabold mt-2 max-w-2xl"></h1>
+    <p id="hero-meta" class="text-blue-300 mt-2"></p>
+    <p id="hero-desc" class="text-slate-300 mt-3 max-w-xl line-clamp-3 text-sm md:text-base"></p>
+    <a id="hero-link" target="_blank" class="inline-block mt-5 bg-blue-600 hover:bg-blue-500 px-6 py-2.5 rounded-full font-semibold">More Info</a>
+  </div>
+</section>
+
+<main class="max-w-7xl mx-auto px-4 pb-16">
+  <div id="results" class="hidden pt-8">
+    <h2 class="text-xl md:text-2xl font-bold border-l-4 border-blue-500 pl-3 mb-4">Search Results</h2>
+    <div id="results-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+  </div>
+  <div id="sections"></div>
+</main>
+
+<footer class="text-center text-xs text-slate-500 py-6 border-t border-blue-900/40">
+  Data from TMDB. This product uses the TMDB API but is not endorsed or certified by TMDB.
+</footer>
+
+<script>
+const API_KEY = "936edc7e7e69c275078975caf562e168";
+const API = "https://api.themoviedb.org/3";
+const IMG = "https://image.tmdb.org/t/p/w500";
+const BG = "https://image.tmdb.org/t/p/original";
+
+const sections = [
+  ["Trending Movies", "/trending/movie/week"],
+  ["Popular Movies", "/movie/popular"],
+  ["Top Rated Movies", "/movie/top_rated"],
+  ["Now Playing", "/movie/now_playing"],
+  ["Upcoming Movies", "/movie/upcoming"]
+];
+
+const get = async (path, extra = "") => {
+  const key = API_KEY.trim();
+  const isToken = key.startsWith("eyJ");
+  const url = `${API}${path}?language=en-US${extra}` + (isToken ? "" : `&api_key=${key}`);
+  const r = await fetch(url, isToken ? { headers: { Authorization: "Bearer " + key } } : {});
+  if (!r.ok) throw new Error(r.status === 401 ? "401 - invalid API key" : "API error " + r.status);
+  return (await r.json()).results || [];
+};
+
+const card = (m, wide) => {
+  const year = (m.release_date || "").slice(0, 4) || "N/A";
+  const poster = m.poster_path ? IMG + m.poster_path : "https://placehold.co/300x450/0b1220/3b82f6?text=No+Poster";
+  return `<a href="https://www.themoviedb.org/movie/${m.id}" target="_blank"
+    class="card block ${wide ? "w-36 sm:w-44 shrink-0 snap-start" : ""} bg-slate-900/60 rounded-xl overflow-hidden border border-blue-950 transition duration-300">
+    <div class="relative">
+      <img src="${poster}" alt="${m.title}" loading="lazy" class="w-full aspect-[2/3] object-cover">
+      <span class="absolute top-2 right-2 bg-black/80 text-blue-400 text-xs font-bold px-2 py-1 rounded-full">&#9733; ${(m.vote_average || 0).toFixed(1)}</span>
+    </div>
+    <div class="p-3">
+      <h3 class="text-sm font-semibold truncate">${m.title}</h3>
+      <p class="text-xs text-slate-400 mt-1">${year}</p>
+    </div>
+  </a>`;
+};
+
+async function loadHero(list) {
+  const m = list.find(x => x.backdrop_path) || list[0];
+  document.getElementById("hero").style.backgroundImage = `url(${BG}${m.backdrop_path})`;
+  document.getElementById("hero-title").textContent = m.title;
+  document.getElementById("hero-meta").textContent =
+    `${(m.release_date || "").slice(0, 4)}  •  ★ ${m.vote_average.toFixed(1)}`;
+  document.getElementById("hero-desc").textContent = m.overview;
+  document.getElementById("hero-link").href = `https://www.themoviedb.org/movie/${m.id}`;
+}
+
+async function init() {
+  const box = document.getElementById("sections");
+  try {
+    for (const [title, path] of sections) {
+      const list = await get(path);
+      if (path.includes("trending")) loadHero(list);
+      box.insertAdjacentHTML("beforeend", `
+        <section class="pt-10">
+          <h2 class="text-xl md:text-2xl font-bold border-l-4 border-blue-500 pl-3 mb-4">${title}</h2>
+          <div class="row flex gap-4 overflow-x-auto snap-x pb-3">${list.map(m => card(m, true)).join("")}</div>
+        </section>`);
+    }
+  } catch (e) {
+    box.innerHTML = `<p class="pt-24 text-center text-blue-300">Could not load movies. Check your API key in index.html.<br><small>${e.message}</small></p>`;
+  }
+}
+
+let timer;
+document.getElementById("search").addEventListener("input", e => {
+  clearTimeout(timer);
+  const q = e.target.value.trim();
+  const res = document.getElementById("results");
+  const secs = document.getElementById("sections");
+  if (!q) { res.classList.add("hidden"); secs.classList.remove("hidden"); return; }
+  timer = setTimeout(async () => {
+    const list = await get("/search/movie", `&query=${encodeURIComponent(q)}`);
+    res.classList.remove("hidden");
+    secs.classList.add("hidden");
+    document.getElementById("results-grid").innerHTML = list.length
+      ? list.map(m => card(m, false)).join("")
+      : `<p class="col-span-full text-slate-400">No movies found.</p>`;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, 350);
+});
+
+init();
+</script>
+</body>
+</html>
